@@ -1,0 +1,176 @@
+@model Ecomm.Models.Product
+
+@{
+    ViewData["Title"] = Model.Name;
+}
+
+<div class="container mx-auto px-4 py-8">
+    <nav class="mb-8">
+        <ol class="flex items-center space-x-2 text-sm text-gray-500">
+            <li>
+                <a asp-controller="Home" asp-action="Index" class="hover:text-primary-600">Home</a>
+            </li>
+            <li>
+                <i class="fas fa-chevron-right text-xs"></i>
+            </li>
+            <li>
+                <a asp-controller="Products" asp-action="Index" class="hover:text-primary-600">Products</a>
+            </li>
+            <li>
+                <i class="fas fa-chevron-right text-xs"></i>
+            </li>
+            <li>
+                <a asp-controller="Products" 
+                   asp-action="Index" 
+                   asp-route-categoryId="@Model.CategoryId" 
+                   class="hover:text-primary-600">@Model.Category?.Name</a>
+            </li>
+            <li>
+                <i class="fas fa-chevron-right text-xs"></i>
+            </li>
+            <li class="text-gray-900 font-medium">@Model.Name</li>
+        </ol>
+    </nav>
+
+    <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 p-8">
+            <!-- Product Image -->
+            <div class="space-y-4">
+                <div class="aspect-w-1 aspect-h-1 rounded-lg overflow-hidden">
+                    <img src="@Model.ImageUrl" 
+                         alt="@Model.Name" 
+                         class="w-full h-full object-cover">
+                </div>
+            </div>
+
+            <!-- Product Details -->
+            <div class="space-y-6">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">@Model.Name</h1>
+                    <p class="mt-2 text-sm text-gray-500">Category: @Model.Category?.Name</p>
+                </div>
+
+                <div class="border-t border-b border-gray-200 py-4">
+                    <p class="text-3xl font-bold text-primary-600">$@Model.Price.ToString("F2")</p>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900">Description</h3>
+                    <p class="mt-2 text-gray-600">@Model.Description</p>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center border border-gray-300 rounded-lg">
+                            <button type="button" onclick="decrementQuantity()" class="px-4 py-2 text-gray-600 hover:text-primary-600 focus:outline-none">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <input type="number" 
+                                   id="quantity" 
+                                   value="1" 
+                                   min="1" 
+                                   max="99" 
+                                   class="w-20 text-center border-x border-gray-300 py-2 focus:outline-none">
+                            <button type="button" onclick="incrementQuantity()" class="px-4 py-2 text-gray-600 hover:text-primary-600 focus:outline-none">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex space-x-4">
+                        <button onclick="addToCart(@Model.Id)" 
+                                class="flex-1 bg-primary-600 text-white px-8 py-3 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+                            <i class="fas fa-shopping-cart mr-2"></i>
+                            Add to Cart
+                        </button>
+                        <button onclick="addToWishlist(@Model.Id)"
+                                class="px-4 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+                            <i class="far fa-heart"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function decrementQuantity() {
+            const input = document.getElementById('quantity');
+            const currentValue = parseInt(input.value);
+            if (currentValue > 1) {
+                input.value = currentValue - 1;
+            }
+        }
+
+        function incrementQuantity() {
+            const input = document.getElementById('quantity');
+            const currentValue = parseInt(input.value);
+            if (currentValue < 99) {
+                input.value = currentValue + 1;
+            }
+        }
+
+        function addToCart(productId) {
+            const quantity = parseInt(document.getElementById('quantity').value);
+            const button = event.currentTarget;
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Adding...';
+
+            fetch('/Cart/AddToCart', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ productId, quantity })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Product added to cart successfully!', 'success');
+                    updateCartCount();
+                } else {
+                    showToast('Failed to add product to cart.', 'error');
+                }
+            })
+            .catch(() => {
+                showToast('An error occurred while adding to cart.', 'error');
+            })
+            .finally(() => {
+                button.disabled = false;
+                button.innerHTML = originalText;
+            });
+        }
+
+        function addToWishlist(productId) {
+            const button = event.currentTarget;
+            button.disabled = true;
+
+            fetch('/Wishlist/AddToWishlist', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ productId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Product added to wishlist successfully!', 'success');
+                    updateWishlistCount();
+                    button.innerHTML = '<i class="fas fa-heart text-primary-600"></i>';
+                } else {
+                    showToast('Failed to add product to wishlist.', 'error');
+                }
+            })
+            .catch(() => {
+                showToast('An error occurred while adding to wishlist.', 'error');
+            })
+            .finally(() => {
+                button.disabled = false;
+            });
+        }
+    </script>
+} 

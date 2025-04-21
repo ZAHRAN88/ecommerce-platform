@@ -1,0 +1,278 @@
+@model List<WishlistItem>
+
+@{
+    ViewData["Title"] = "My Wishlist";
+}
+
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-900">My Wishlist</h1>
+            <span class="text-gray-600">@Model.Count item(s)</span>
+        </div>
+
+        @if (!Model.Any())
+        {
+            <div class="text-center py-8">
+                <div class="mb-4">
+                    <i class="far fa-heart text-gray-300 text-6xl"></i>
+                </div>
+                <h3 class="text-xl font-medium text-gray-900 mb-2">Your wishlist is empty</h3>
+                <p class="text-gray-600 mb-4">Save items you love for later!</p>
+                <a asp-controller="Home" asp-action="Index" 
+                   class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Continue Shopping
+                </a>
+            </div>
+        }
+        else
+        {
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                @foreach (var item in Model)
+                {
+                    <div class="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow duration-300">
+                        <div class="relative group">
+                            <a asp-controller="Home" asp-action="Details" asp-route-id="@item.ProductId">
+                                <img src="@item.Product.ImageUrl" 
+                                     alt="@item.Product.Name"
+                                     class="w-full h-48 object-cover rounded-t-lg transition-transform duration-300 group-hover:scale-105"
+                                     onerror="this.src='/images/placeholder.png'">
+                            </a>
+                            <button onclick="removeFromWishlist(@item.Id)"
+                                    class="absolute top-2 right-2 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 focus:outline-none opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                <i class="fas fa-times text-gray-600"></i>
+                            </button>
+                            <div class="absolute bottom-2 right-2">
+                                <span class="bg-primary-600 text-white text-sm px-3 py-1 rounded-full">
+                                    $@item.Product.Price.ToString("F2")
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="p-4">
+                            <div class="mb-3">
+                                <h3 class="text-lg font-medium text-gray-900 mb-1">
+                                    <a asp-controller="Home" asp-action="Details" asp-route-id="@item.ProductId"
+                                       class="hover:text-primary-600 transition-colors line-clamp-1">
+                                        @item.Product.Name
+                                    </a>
+                                </h3>
+                                @if (item.Product.Category != null)
+                                {
+                                    <p class="text-sm text-gray-500">@item.Product.Category.Name</p>
+                                }
+                                <p class="text-sm text-gray-500 mt-1">
+                                    Added @item.DateAdded.ToString("MMM dd, yyyy")
+                                </p>
+                            </div>
+                            
+                            <form asp-controller="Cart" asp-action="AddToCart" method="post" onsubmit="return false;">
+                                <input type="hidden" name="productId" value="@item.ProductId" />
+                                <input type="hidden" name="quantity" value="1" />
+                                <button type="button" 
+                                        onclick="addToCart(this.closest('form'), @item.Id)"
+                                        class="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+                                    <i class="fas fa-shopping-cart mr-2"></i>
+                                    Add to Cart
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="mt-8 flex justify-between items-center">
+                <a asp-controller="Home" asp-action="Index" 
+                   class="text-primary-600 hover:text-primary-700 inline-flex items-center">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Continue Shopping
+                </a>
+                <button onclick="clearWishlist()"
+                        class="text-gray-600 hover:text-gray-800 inline-flex items-center">
+                    <i class="fas fa-trash mr-2"></i>
+                    Clear Wishlist
+                </button>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        async function removeFromWishlist(itemId) {
+            if (!confirm('Are you sure you want to remove this item from your wishlist?')) return;
+            
+            const button = event.currentTarget;
+            const card = button.closest('.bg-white.rounded-lg');  
+            if (!card) return;  
+            
+            button.disabled = true;
+            
+            try {
+                const response = await fetch('/Wishlist/RemoveFromWishlist', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: `id=${itemId}`
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    const wishlistCountElement = document.getElementById('wishlist-count');
+                    if (wishlistCountElement && data.wishlistCount !== undefined) {
+                        wishlistCountElement.textContent = data.wishlistCount;
+                        if (data.wishlistCount === 0) {
+                            wishlistCountElement.classList.add('hidden');
+                        }
+                    }
+
+                    card.style.transition = 'all 0.3s ease-out';
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.95)';
+                    
+                    setTimeout(() => {
+                        card.remove();
+                        
+                        const remainingItems = document.querySelectorAll('.grid > div').length;
+                        if (remainingItems === 0) {
+                            window.location.href = '/Wishlist';
+                        } else {
+                            const countDisplay = document.querySelector('.text-gray-600');
+                            if (countDisplay) {
+                                countDisplay.textContent = `${remainingItems} item(s)`;
+                            }
+                        }
+                    }, 300);
+                    
+                    showToast('Item removed from wishlist');
+                } else {
+                    throw new Error(data.message || 'Failed to remove from wishlist');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Failed to remove item', 'error');
+                button.disabled = false;
+            }
+        }
+        
+        async function addToCart(form, wishlistItemId) {
+            const button = form.querySelector('button');
+            const originalContent = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span class="ml-2">Adding...</span>';
+            
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        button.innerHTML = '<i class="fas fa-check"></i><span class="ml-2">Added to Cart!</span>';
+                        button.classList.remove('bg-primary-600', 'hover:bg-primary-700');
+                        button.classList.add('bg-green-500', 'hover:bg-green-600');
+                        
+                        if (window.updateCartCountAfterAdd) {
+                            window.updateCartCountAfterAdd();
+                        }
+                        
+                     
+                        await removeFromWishlist(wishlistItemId);
+                    }
+                } else {
+                    throw new Error('Failed to add to cart');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                button.innerHTML = originalContent;
+                showToast('Failed to add product to cart', 'error');
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        async function clearWishlist() {
+            if (!confirm('Are you sure you want to clear your entire wishlist? This action cannot be undone.')) return;
+            
+            const button = event.currentTarget;
+            button.disabled = true;
+            
+            try {
+                const response = await fetch('/Wishlist/ClearWishlist', {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    const wishlistCountElement = document.getElementById('wishlist-count');
+                    if (wishlistCountElement) {
+                        wishlistCountElement.textContent = '0';
+                        wishlistCountElement.classList.add('hidden');
+                    }
+                    
+                    const cards = document.querySelectorAll('.grid > div');
+                    cards.forEach(card => {
+                        card.style.transition = 'all 0.3s ease-out';
+                        card.style.opacity = '0';
+                        card.style.transform = 'scale(0.95)';
+                    });
+                    
+                    showToast('Wishlist cleared successfully');
+                    
+                    setTimeout(() => {
+                        window.location.href = '/Wishlist';
+                    }, 500);
+                } else {
+                    throw new Error(data.message || 'Failed to clear wishlist');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Failed to clear wishlist', 'error');
+                button.disabled = false;
+            }
+        }
+        
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            const icon = type === 'success' ? 'check-circle' : 
+                        type === 'error' ? 'exclamation-circle' : 
+                        'information-circle';
+            
+            toast.className = `fixed bottom-4 right-4 p-4 rounded-lg shadow-lg text-white ${
+                type === 'success' ? 'bg-green-500' : 
+                type === 'error' ? 'bg-red-500' : 
+                'bg-blue-500'
+            } transition-all duration-300 flex items-center space-x-2`;
+            toast.style.zIndex = '1000';
+            toast.innerHTML = `
+                <i class="fas fa-${icon} mr-2"></i>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(toast);
+            
+            requestAnimationFrame(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+            });
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(20px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+}

@@ -1,0 +1,287 @@
+@model List<CartItem>
+
+@{
+    ViewData["Title"] = "Shopping Cart";
+    decimal total = Model.Sum(item => item.Product.Price * item.Quantity);
+}
+
+<div class="container mx-auto px-4 py-8">
+    <div class="flex flex-col lg:flex-row gap-8">
+        <!-- Cart Items Section -->
+        <div class="lg:w-2/3">
+            <div class="bg-white rounded-lg shadow-md p-6 mb-4">
+                <div class="flex justify-between items-center mb-6">
+                    <h1 class="text-2xl font-bold text-gray-900">Shopping Cart</h1>
+                    <span class="text-gray-600">@Model.Count item(s)</span>
+                </div>
+
+                @if (!Model.Any())
+                {
+                    <div class="text-center py-8">
+                        <div class="mb-4">
+                            <i class="fas fa-shopping-cart text-gray-300 text-6xl"></i>
+                        </div>
+                        <h3 class="text-xl font-medium text-gray-900 mb-2">Your cart is empty</h3>
+                        <p class="text-gray-600 mb-4">Looks like you haven't added anything to your cart yet.</p>
+                        <a asp-controller="Home" asp-action="Index" 
+                           class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                            <i class="fas fa-arrow-left mr-2"></i>
+                            Continue Shopping
+                        </a>
+                    </div>
+                }
+                else
+                {
+                    <div class="divide-y divide-gray-200">
+                        @foreach (var item in Model)
+                        {
+                            <div class="flex flex-col sm:flex-row py-6 gap-4">
+                                <!-- Product Image -->
+                                <div class="sm:w-24 sm:h-24 rounded-lg overflow-hidden">
+                                    <a asp-controller="Home" asp-action="Details" asp-route-id="@item.ProductId">
+                                        <img src="@item.Product.ImageUrl" 
+                                             alt="@item.Product.Name"
+                                             class="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                                             onerror="this.src='/images/placeholder.png'">
+                                    </a>
+                                </div>
+                                
+                                <!-- Product Details -->
+                                <div class="flex-1">
+                                    <div class="flex justify-between">
+                                        <div>
+                                            <h3 class="text-lg font-medium text-gray-900">
+                                                <a asp-controller="Home" asp-action="Details" asp-route-id="@item.ProductId" 
+                                                   class="hover:text-primary-600 transition-colors">
+                                                    @item.Product.Name
+                                                </a>
+                                            </h3>
+                                            @if (item.Product.Category != null)
+                                            {
+                                                <p class="mt-1 text-sm text-gray-500">@item.Product.Category.Name</p>
+                                            }
+                                            <p class="mt-1 text-sm text-primary-600">
+                                                $@item.Product.Price.ToString("F2") each
+                                            </p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-lg font-medium text-gray-900">
+                                                $@((item.Product.Price * item.Quantity).ToString("F2"))
+                                            </p>
+                                            @if (item.Quantity > 1)
+                                            {
+                                                <p class="text-sm text-gray-500">
+                                                    Quantity: @item.Quantity
+                                                </p>
+                                            }
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-4 flex items-center justify-between">
+                                        <!-- Quantity Controls -->
+                                        <div class="flex items-center border rounded-lg shadow-sm">
+                                            <button onclick="updateQuantity(@item.Id, @(item.Quantity - 1))"
+                                                    class="px-3 py-1 text-gray-600 hover:text-primary-600 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    @(item.Quantity <= 1 ? "disabled" : "")>
+                                                <i class="fas fa-minus"></i>
+                                            </button>
+                                            <span class="px-4 py-1 text-gray-900 border-x min-w-[40px] text-center">@item.Quantity</span>
+                                            <button onclick="updateQuantity(@item.Id, @(item.Quantity + 1))"
+                                                    class="px-3 py-1 text-gray-600 hover:text-primary-600 focus:outline-none transition-colors">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Remove Button -->
+                                        <button onclick="removeFromCart(@item.Id)"
+                                                class="text-sm text-red-600 hover:text-red-800 focus:outline-none transition-colors inline-flex items-center">
+                                            <i class="fas fa-trash-alt mr-1"></i>
+                                            Remove
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="mt-6 flex justify-between items-center">
+                        <a asp-controller="Home" asp-action="Index" 
+                           class="text-primary-600 hover:text-primary-700 inline-flex items-center transition-colors">
+                            <i class="fas fa-arrow-left mr-2"></i>
+                            Continue Shopping
+                        </a>
+                        <button onclick="clearCart()"
+                                class="text-gray-600 hover:text-gray-800 inline-flex items-center transition-colors">
+                            <i class="fas fa-times mr-2"></i>
+                            Clear Cart
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Order Summary Section -->
+        @if (Model.Any())
+        {
+            <div class="lg:w-1/3">
+                <div class="bg-white rounded-lg shadow-md p-6 sticky top-24">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4">Order Summary</h2>
+                    
+                    <div class="space-y-4">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Subtotal (@Model.Sum(i => i.Quantity) items)</span>
+                            <span class="text-gray-900">$@total.ToString("F2")</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Shipping</span>
+                            <span class="text-green-600">Free</span>
+                        </div>
+                        <div class="border-t pt-4">
+                            <div class="flex justify-between">
+                                <span class="text-lg font-semibold text-gray-900">Total</span>
+                                <span class="text-lg font-semibold text-primary-600">$@total.ToString("F2")</span>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-1">Including VAT</p>
+                        </div>
+                    </div>
+                    
+                    <button onclick="proceedToCheckout()"
+                            class="w-full mt-6 bg-primary-600 text-white py-3 px-4 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors inline-flex items-center justify-center">
+                        <i class="fas fa-lock mr-2"></i>
+                        Proceed to Checkout
+                    </button>
+
+                    <div class="mt-4 flex items-center justify-center space-x-4">
+                        <i class="fas fa-shield-alt text-gray-400"></i>
+                        <span class="text-sm text-gray-500">Secure Checkout</span>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        async function updateQuantity(itemId, newQuantity) {
+            if (newQuantity < 1) return;
+            
+            const button = event.currentTarget;
+            const quantityDisplay = button.parentElement.querySelector('span');
+            const originalQuantity = parseInt(quantityDisplay.textContent);
+            
+            button.disabled = true;
+            const loadingSpinner = '<i class="fas fa-spinner fa-spin"></i>';
+            button.innerHTML = loadingSpinner;
+            
+            try {
+                const response = await fetch('/Cart/UpdateQuantity', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: `id=${itemId}&quantity=${newQuantity}`
+                });
+                
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    showToast('Failed to update quantity', 'error');
+                    quantityDisplay.textContent = originalQuantity;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Failed to update quantity', 'error');
+                quantityDisplay.textContent = originalQuantity;
+            } finally {
+                button.disabled = false;
+                button.innerHTML = newQuantity > originalQuantity ? '<i class="fas fa-plus"></i>' : '<i class="fas fa-minus"></i>';
+            }
+        }
+        
+        async function removeFromCart(itemId) {
+            if (!confirm('Are you sure you want to remove this item?')) return;
+            
+            const button = event.currentTarget;
+            const originalContent = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Removing...';
+            
+            try {
+                const response = await fetch('/Cart/RemoveFromCart', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: `id=${itemId}`
+                });
+                
+                if (response.ok) {
+                    const item = button.closest('.flex.flex-col.sm\\:flex-row');
+                    item.style.transition = 'all 0.3s ease-out';
+                    item.style.opacity = '0';
+                    item.style.transform = 'translateX(-20px)';
+                    
+                    setTimeout(() => {
+                        item.remove();
+                        location.reload();
+                    }, 300);
+                } else {
+                    showToast('Failed to remove item', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Failed to remove item', 'error');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            }
+        }
+
+        function clearCart() {
+            if (!confirm('Are you sure you want to clear your entire cart?')) return;
+            // TODO: Implement clear cart functionality
+            showToast('Cart cleared successfully');
+            location.reload();
+        }
+
+        function proceedToCheckout() {
+            // TODO: Implement checkout functionality
+            showToast('Checkout feature coming soon!', 'info');
+        }
+        
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            const icon = type === 'success' ? 'check-circle' : 
+                        type === 'error' ? 'exclamation-circle' : 
+                        'information-circle';
+            
+            toast.className = `fixed bottom-4 right-4 p-4 rounded-lg shadow-lg text-white ${
+                type === 'success' ? 'bg-green-500' : 
+                type === 'error' ? 'bg-red-500' : 
+                'bg-blue-500'
+            } transition-all duration-300 flex items-center space-x-2`;
+            toast.style.zIndex = '1000';
+            toast.innerHTML = `
+                <i class="fas fa-${icon} mr-2"></i>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(toast);
+            
+            // Fade in
+            requestAnimationFrame(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+            });
+            
+            // Fade out
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(20px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+} 

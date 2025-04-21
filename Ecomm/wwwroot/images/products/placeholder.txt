@@ -1,0 +1,6 @@
+This directory contains product images. Please add the following images:
+- nike-air-max.jpg
+- wireless-headphones.jpg
+- smart-watch.jpg
+- laptop-backpack.jpg
+- coffee-maker.jpg 
